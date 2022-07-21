@@ -1,0 +1,56 @@
+import nltk
+from lxml import etree
+from collections import Counter
+from nltk import word_tokenize
+from nltk import WordNetLemmatizer
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+import string
+nltk.download('averaged_perceptron_tagger')
+import sklearn
+from sklearn.feature_extraction.text import TfidfVectorizer
+import CountVectorizer
+import pandas as pd
+
+tfidf_transformer = TfidfVectorizer()
+stopwords = nltk.corpus.stopwords.words('english')
+
+file_path = "news.xml"
+tree = etree.parse(file_path)
+root = tree.getroot()
+
+lemmatizer = WordNetLemmatizer()
+for child in root.iter('value'):
+    lemmas = []
+    filtered = []
+    final = []
+    if child.get('name') == 'head':
+        head = child.text
+        print(head + ":")
+    elif child.get('name') == 'text':
+        text = child.text
+        tokens = nltk.tokenize.word_tokenize(text.lower())
+        for token in tokens:
+            lemma = lemmatizer.lemmatize(token)
+            lemmas.append(lemma)
+        for l in lemmas:
+            if l not in stopwords:
+                filtered.append(l)
+        pos = [nltk.pos_tag([word]) for word in filtered]
+        temp_list = [word[0][0] for word in pos if word[0][1] == "NN"]
+        punctuation = string.punctuation
+        final=[w for w in temp_list if w not in punctuation]
+        final = sorted(final, reverse = True)
+        #count = Counter(final).most_common(5)
+        #for w in [x[0] for x in count]:
+        #    print(w, end=" ")
+        #print("\n")
+        dataset = final
+        cv = CountVectorizer()
+        word_count_vector = cv.fit_transform(dataset)
+        tf_idf_vector = tfidf_transformer.fit(word_count_vector)
+        feature_names = cv.get_feature_names()
+        df = pd.DataFrame(tf_idf_vector.T.todense(), index=feature_names, columns=["tfidf"])
+        df.sort_values(by=["tfidf"],ascending=False)
